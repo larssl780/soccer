@@ -323,7 +323,7 @@ def calculate_betfair_odds_and_loss_prob(hc, probs=None, commission=0.02):
 
     hc, fo, lp = calculate_fair_odds_and_loss_prob(probs, hc)
 
-    return betfair_net_odds(fo, commission=commission), lp
+    return betfair_equivalent_odds(fo, commission=commission), lp
 
 
 def fair_asian_odds_clubelo(mov_probs, home_team_handicap):
@@ -337,7 +337,13 @@ def fair_asian_odds_clubelo(mov_probs, home_team_handicap):
 def betfair_net_odds(nom_odds=None, commission=0.02):
     return (nom_odds - 1) * (1 - commission) + 1
 
+def betfair_equivalent_odds(net_odds=None, commission=0.02):
+    """Given some theoretical fair odds - what's the odds that we have to see on betfair in order to make money?
+    Ie. if fair odds is fo, then bf equivalent odds would be fo *(1+eps), eps>0
 
+
+    """
+    return (net_odds - 1) / (1 - commission) + 1
 def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
     if probs is None:
         raise Exception("You have to provide probabilities!")
@@ -651,7 +657,8 @@ class poisson_calculator:
         oppo_fodds = []
         lossis = []
         for _tuple in _grid.itertuples():
-            offi = _offsetting_odds(_tuple.odds)
+            # remove the betfair commission:
+            offi = betfair_equivalent_odds(_offsetting_odds(betfair_net_odds(_tuple.odds)))
             oppo_hc = -1 * _tuple.hc
             oppo_hcs.append(oppo_hc)
             oppo_fodds.append(offi)
