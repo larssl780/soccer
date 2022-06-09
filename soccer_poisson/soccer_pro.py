@@ -57,10 +57,11 @@ def mov_probs_one_arg2(odds_and_potentially_extra_arg):
 
 
 def mov_probs_skellam(home_odds, draw_odds, away_odds):
-    [h, d, a] = remove_overround([home_odds, draw_odds, away_odds])
-    win = 1 / h
-    draw = 1 / d
-    lose = 1 / a
+    # [h, d, a] = remove_overround([home_odds, draw_odds, away_odds])
+    win = 1 / home_odds
+    draw = 1 / draw_odds
+    lose = 1 / away_odds
+    # remove the overround:
     k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
     # p_win = win**k
     p_draw = draw**k
@@ -101,7 +102,7 @@ def mov_probs_skellam(home_odds, draw_odds, away_odds):
             else:
                 clean_probs[mov] = prob
 
-    return clean_probs
+    return clean_probs, mu1, mu2
 
 
 def mov_probs_one_arg3(odds_and_potentially_extra_arg):
@@ -753,9 +754,38 @@ class skellam_calculator(poisson_calculator):
         super().__init__(home_odds=home_odds, away_odds=away_odds, draw_odds=draw_odds,
                          commission=commission, workers=1, max_loss_prob=max_loss_prob)
 
+        self._mu1 = None
+        self._mu2 = None
+
+    @property
+    def mu1(self):
+        return self._mu1
+
+    @mu1.setter
+    def mu1(self, value):
+        self._mu1 = value
+
+    @property
+    def mu2(self):
+        return self._mu2
+
+    @mu2.setter
+    def mu2(self, value):
+        self._mu2 = value
+
     @property
     def probs(self):
         """
         the overround gets removed inside the function:
         """
-        return mov_probs_skellam(self.home_odds, self.draw_odds, self.away_odds)
+        probs, mu1, mu2 = mov_probs_skellam(
+            self.home_odds, self.draw_odds, self.away_odds)
+
+        self.mu1 = mu1
+        self.mu2 = mu2
+        return probs
+
+    @property
+    def expected_mov(self):
+        # print(self.probs)
+        return self.mu1 - self.mu2
