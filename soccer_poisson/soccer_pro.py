@@ -1,7 +1,9 @@
 import numpy as np
 from scipy import optimize
+from scipy.stats import skellam
 import pandas as pd
 from thin_wrappers import grid_runner as gr
+
 
 def odds_ratio_func(odds_array, c):
     """
@@ -52,6 +54,54 @@ def mov_probs_one_arg2(odds_and_potentially_extra_arg):
     probs = mov_probs_from_poission_reg_np(
         home_odds, draw_odds, away_odds, transform_to_norm=transform_to_norm)
     return probs
+
+
+def mov_probs_skellam(home_odds, draw_odds, away_odds):
+    [h, d, a] = remove_overround([home_odds, draw_odds, away_odds])
+    win = 1 / h
+    draw = 1 / d
+    lose = 1 / a
+    k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
+    # p_win = win**k
+    p_draw = draw**k
+    p_lose = lose**k
+
+    def f(p):
+        return (skellam.pmf(0, p[0], p[1]) - p_draw)**2 + (skellam.cdf(-1, p[0], p[1]) - p_lose)**2
+
+    def c_1(p):
+        return p[0]
+
+    def c_2(p):
+        return p[1]
+
+    solution = optimize.minimize(f, np.array([2, 2]), constraints=(
+        {'type': 'ineq', 'fun': c_1}, {'type': 'ineq', 'fun': c_1}))
+
+    (mu1, mu2) = solution.x
+
+    clean_probs = {}
+
+    mov_probs = dict(
+        zip(np.arange(-10, 10), skellam.pmf(np.arange(-10, 10), mu1, mu2)))
+    for mov, prob in mov_probs.items():
+        if mov < -5:
+            if -np.inf in clean_probs:
+                clean_probs[-np.inf] += prob
+            else:
+                clean_probs[-np.inf] = prob
+        elif mov > 5:
+            if np.inf in clean_probs:
+                clean_probs[np.inf] += prob
+            else:
+                clean_probs[np.inf] = prob
+        else:
+            if mov in clean_probs:
+                clean_probs[mov] += prob
+            else:
+                clean_probs[mov] = prob
+
+    return clean_probs
 
 
 def mov_probs_one_arg3(odds_and_potentially_extra_arg):
@@ -337,6 +387,7 @@ def fair_asian_odds_clubelo(mov_probs, home_team_handicap):
 def betfair_net_odds(nom_odds=None, commission=0.02):
     return (nom_odds - 1) * (1 - commission) + 1
 
+
 def betfair_equivalent_odds(net_odds=None, commission=0.02):
     """Given some theoretical fair odds - what's the odds that we have to see on betfair in order to make money?
     Ie. if fair odds is fo, then bf equivalent odds would be fo *(1+eps), eps>0
@@ -344,6 +395,8 @@ def betfair_equivalent_odds(net_odds=None, commission=0.02):
 
     """
     return (net_odds - 1) / (1 - commission) + 1
+
+
 def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
     if probs is None:
         raise Exception("You have to provide probabilities!")
@@ -401,7 +454,7 @@ def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
         print("We will lose money for these MoVs:")
         print(loss_movs)
     prob = 0
-    
+
     for el in loss_movs:
         prob += probs[el]
     return prob
@@ -658,7 +711,8 @@ class poisson_calculator:
         lossis = []
         for _tuple in _grid.itertuples():
             # remove the betfair commission:
-            offi = betfair_equivalent_odds(_offsetting_odds(betfair_net_odds(_tuple.odds)))
+            offi = betfair_equivalent_odds(
+                _offsetting_odds(betfair_net_odds(_tuple.odds)))
             oppo_hc = -1 * _tuple.hc
             oppo_hcs.append(oppo_hc)
             oppo_fodds.append(offi)
@@ -692,3 +746,16 @@ class poisson_calculator:
             return '%d@%.2f' % (hc, fo)
 
         return '%.2f@%.2f' % (hc, fo)
+
+
+class skellam_calculator(poisson_calculator):
+    def __init__(self, home_odds=None, away_odds=None, draw_odds=None, commission=0.02, workers=1, max_loss_prob=0.3):
+        super().__init__(home_odds=home_odds, away_odds=away_odds, draw_odds=draw_odds,
+                         commission=commission, workers=1, max_loss_prob=max_loss_prob)
+
+    @property
+    def probs(self):
+        """
+        the overround gets removed inside the function:
+        """
+        return mov_probs_skellam(self.home_odds, self.draw_odds, self.away_odds)
