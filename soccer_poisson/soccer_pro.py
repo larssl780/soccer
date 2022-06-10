@@ -3,6 +3,8 @@ from scipy import optimize
 from scipy.stats import skellam
 import pandas as pd
 from thin_wrappers import grid_runner as gr
+from thin_wrappers.utils import find_all_indicies
+import re
 
 
 def odds_ratio_func(odds_array, c):
@@ -789,3 +791,60 @@ class skellam_calculator(poisson_calculator):
     def expected_mov(self):
         # print(self.probs)
         return self.mu1 - self.mu2
+
+
+def find_all(line='', tag='', case=False, return_unique=False):
+    if not case:
+        if not return_unique:
+            return [m.group() for m in re.finditer(tag, line, re.IGNORECASE)]
+        return list(set([m.group() for m in re.finditer(tag, line, re.IGNORECASE)]))
+    else:
+        if not return_unique:
+            return [m.group() for m in re.finditer(tag, line)]
+        return list(set([m.group() for m in re.finditer(tag, line)]))
+
+
+def parse_oddsportal_page(text=None, skip_finished=True):
+    """
+    copy table-element from Inspect
+    """
+
+    idxs = find_all_indicies(text, r'-\w{8}/')
+    tags = find_all(text, r'-\w{8}/')
+    decimal_query = r'[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)'
+
+    out = []
+    for i in range(len(idxs)):
+        idx = idxs[i]
+        _id = tags[i][1:-1]
+
+        try:
+            next_idx = idxs[i + 1]
+        except:
+            next_idx = -1
+
+        search_text = text[idx:next_idx]
+
+        if skip_finished:
+            if 'table-score' in search_text:
+                continue
+
+        desc_idx = search_text.find('/">')
+        end_idx = search_text.find('</a>')
+
+        odds_idxs = find_all_indicies(text[idx:], 'odds_text')[:3]
+        odds = []
+
+        time_idx = text[:idx].rfind('table-time datet')
+        time_text = re.search(r'\d{2}\:\d{2}', text[time_idx:])
+
+        if time_text is not None:
+            time_disp = time_text.group()
+        else:
+            # pdb.set_trace()
+            time_disp = 'n/a'
+        for oid in odds_idxs:
+            odds.append(re.search(decimal_query, text[idx + oid:]).group())
+        row = [_id, search_text[desc_idx + 3:end_idx], time_disp] + odds
+        out.append(row)
+    return pd.DataFrame(out, columns=['game_id', 'match', 'time', 'home', 'draw', 'away'])
