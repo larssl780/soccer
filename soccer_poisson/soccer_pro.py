@@ -804,6 +804,13 @@ def find_all(line='', tag='', case=False, return_unique=False):
         return list(set([m.group() for m in re.finditer(tag, line)]))
 
 
+def us_to_eu_odds(in_odds):
+    if in_odds > 0:
+        return 1 + in_odds / 100
+    else:
+        return 1 + 100 / abs(in_odds)
+
+
 def parse_oddsportal_page(text=None, skip_finished=True):
     """
     copy table-element from Inspect
@@ -817,7 +824,8 @@ def parse_oddsportal_page(text=None, skip_finished=True):
     for i in range(len(idxs)):
         idx = idxs[i]
         _id = tags[i][1:-1]
-
+        if not (re.search('[a-z]', _id) and re.search('[A-Z]', _id)):
+            continue
         try:
             next_idx = idxs[i + 1]
         except:
@@ -844,7 +852,19 @@ def parse_oddsportal_page(text=None, skip_finished=True):
             # pdb.set_trace()
             time_disp = 'n/a'
         for oid in odds_idxs:
-            odds.append(re.search(decimal_query, text[idx + oid:]).group())
+            odds_txt = re.search(decimal_query, text[idx + oid:]).group()
+
+            if odds_txt.startswith('+') or odds_txt.startswith('-'):
+                if odds_txt.startswith('+'):
+                    this_odds = us_to_eu_odds(int(odds_txt.replace('+', '')))
+                else:
+                    this_odds = us_to_eu_odds(int(odds_txt))
+            else:
+                this_odds = float(odds_txt)
+            odds.append(this_odds)
         row = [_id, search_text[desc_idx + 3:end_idx], time_disp] + odds
+
+        if '<span class' in row[1]:
+            continue
         out.append(row)
     return pd.DataFrame(out, columns=['game_id', 'match', 'time', 'home', 'draw', 'away'])
