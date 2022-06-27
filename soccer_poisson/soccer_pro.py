@@ -79,7 +79,7 @@ def mov_probs_skellam(home_odds, draw_odds, away_odds):
         return p[1]
 
     solution = optimize.minimize(f, np.array([2, 2]), constraints=(
-        {'type': 'ineq', 'fun': c_1}, {'type': 'ineq', 'fun': c_1}))
+        {'type': 'ineq', 'fun': c_1}, {'type': 'ineq', 'fun': c_2}))
 
     (mu1, mu2) = solution.x
 
