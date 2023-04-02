@@ -86,7 +86,7 @@ def mov_probs_skellam(home_odds, draw_odds, away_odds):
     clean_probs = {}
 
     mov_probs = dict(
-        zip(np.arange(-10, 10), skellam.pmf(np.arange(-10, 10), mu1, mu2)))
+        zip(np.arange(-20, 20), skellam.pmf(np.arange(-20, 20), mu1, mu2)))
     for mov, prob in mov_probs.items():
         if mov < -5:
             if -np.inf in clean_probs:
@@ -224,7 +224,7 @@ def cross_entropy_loss_np(prediction, target):
 
 
 def double_poisson_regression_np(country_1, country_2, country_1_2):
-    goals = np.arange(10)
+    goals = np.arange(20)
     factorials = np.array([np.math.factorial(goal) for goal in goals])
     lambda_1 = np.expand_dims(country_1 + country_1_2, axis=-1)
     lambda_2 = np.expand_dims(country_2 - country_1_2, axis=-1)
@@ -251,7 +251,7 @@ def single_prediction_np(lambda_1, lambda_2, lambda_1_2):
 
 
 def p_normal_time(poisson_matrix):
-    ones_like_matrix = np.ones(shape=(10, 10))
+    ones_like_matrix = np.ones(shape=(20, 20))
     win_mask = np.tril(ones_like_matrix, k=-1)
     draw_mask = np.eye(ones_like_matrix.shape[0])
     loss_mask = np.triu(ones_like_matrix, k=1)
@@ -338,7 +338,7 @@ def dict_prob_mov_greater(dic, mov):
 
 
 def clubelo_expected_mov(probs):
-    vals = range(-10, 10)
+    vals = range(-20, 20)
     ev = 0
     for v in vals:
         ev += v * mov_pmf(v, probs)
