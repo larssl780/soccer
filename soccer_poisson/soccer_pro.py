@@ -7,6 +7,12 @@ from thin_wrappers.utils import find_all_indicies
 import re
 
 
+def make_pretty(styler, cap=''):
+    styler.set_caption(cap)
+    # styler.format(precision=3)
+    return styler
+
+
 def odds_ratio_func(odds_array, c):
     """
     odds_array contains the odds with margin on top
@@ -791,6 +797,55 @@ class skellam_calculator(poisson_calculator):
     def expected_mov(self):
         # print(self.probs)
         return self.mu1 - self.mu2
+
+    def report(self):
+        grid = self.grid(apply_max_loss=False)
+        grid['fair_odds'] = grid.odds
+        oppo_hcs = []
+        oppo_fodds = []
+        for _tuple in grid.itertuples():
+            try:
+                offi = betfair_equivalent_odds(
+                    _offsetting_odds(betfair_net_odds(_tuple.fair_odds)))
+            except:
+                oppo_hc = -1 * _tuple.hc
+                oppo_hcs.append(oppo_hc)
+                oppo_fodds.append(np.nan)
+                continue
+            oppo_hc = -1 * _tuple.hc
+            oppo_hcs.append(oppo_hc)
+            oppo_fodds.append(offi)
+        grid['opp_odds'] = oppo_fodds
+        grid['opp_hc'] = oppo_hcs
+        max_loss_prob = self.max_loss_prob * 100
+        back_home = grid.query(
+            "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
+        back_away = grid.query(
+            "loss.mul(100) >= (100-@max_loss_prob) and opp_odds > 1.14", engine='python').copy()
+        back_away.sort_values(['loss', 'opp_odds'],
+                              ascending=[1, 0], inplace=True)
+        # pdb.set_trace()
+        bets = []
+
+        back_home = back_home.iloc[:1]
+        for _t in back_home.itertuples():
+            raw_odds = np.ceil(_t.fair_odds * 100) / 100
+            bets.append("%.2f @ %.3f (%.2f lp)" %
+                        (_t.hc, raw_odds, 100 * _t.loss))
+
+            back_away = back_away.iloc[:1]
+        for _t in back_away.itertuples():
+            raw_odds = np.ceil(_t.opp_odds * 100) / 100
+            bets.append("%.2f @ %.3f (%.2f lp)" %
+                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss)))
+
+        idx = np.concatenate(
+            [np.repeat('H', len(back_home)), np.repeat('A', len(back_away))])
+        do_it = pd.DataFrame(bets, columns=['bet'], index=pd.Index(idx))
+        ho, do, ao = self.clean_odds
+        styler = do_it.style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
+                                  (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
+        return do_it, styler
 
 
 def find_all(line='', tag='', case=False, return_unique=False):
