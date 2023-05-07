@@ -5,6 +5,7 @@ import pandas as pd
 from thin_wrappers import grid_runner as gr
 from thin_wrappers.utils import find_all_indicies
 import re
+# import pdb
 
 
 def make_pretty(styler, cap=''):
@@ -794,6 +795,13 @@ class skellam_calculator(poisson_calculator):
         return probs
 
     @property
+    def inverted_probs(self):
+        out = {}
+        for k, v in self.probs.items():
+            out[-1 * k] = v
+        return out
+
+    @property
     def expected_mov(self):
         # print(self.probs)
         return self.mu1 - self.mu2
@@ -817,6 +825,7 @@ class skellam_calculator(poisson_calculator):
             oppo_fodds.append(offi)
         grid['opp_odds'] = oppo_fodds
         grid['opp_hc'] = oppo_hcs
+        
         max_loss_prob = self.max_loss_prob * 100
         back_home = grid.query(
             "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
@@ -830,14 +839,20 @@ class skellam_calculator(poisson_calculator):
         back_home = back_home.iloc[:1]
         for _t in back_home.itertuples():
             raw_odds = np.ceil(_t.fair_odds * 100) / 100
-            bets.append("%.2f @ %.3f (%.2f lp)" %
-                        (_t.hc, raw_odds, 100 * _t.loss))
+
+            # pdb.set_trace()
+            epnl = asian_expected_pnl_clubelo(
+                _t.hc, raw_odds, self.probs) * 1e4
+            bets.append("%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                        (_t.hc, raw_odds, 100 * _t.loss, epnl))
 
             back_away = back_away.iloc[:1]
         for _t in back_away.itertuples():
             raw_odds = np.ceil(_t.opp_odds * 100) / 100
-            bets.append("%.2f @ %.3f (%.2f lp)" %
-                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss)))
+            epnl = asian_expected_pnl_clubelo(
+                _t.opp_hc, raw_odds, self.inverted_probs) * 1e4
+            bets.append("%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl))
 
         idx = np.concatenate(
             [np.repeat('H', len(back_home)), np.repeat('A', len(back_away))])
