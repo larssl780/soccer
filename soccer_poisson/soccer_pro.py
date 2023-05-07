@@ -843,20 +843,22 @@ class skellam_calculator(poisson_calculator):
             # pdb.set_trace()
             epnl = asian_expected_pnl_clubelo(
                 _t.hc, raw_odds, self.probs) * 1e4
-            bets.append("%.2f @ %.3f (%.2f lp, %.0f ep)" %
-                        (_t.hc, raw_odds, 100 * _t.loss, epnl))
+            bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                        (_t.hc, raw_odds, 100 * _t.loss, epnl), epnl])
 
             back_away = back_away.iloc[:1]
         for _t in back_away.itertuples():
             raw_odds = np.ceil(_t.opp_odds * 100) / 100
             epnl = asian_expected_pnl_clubelo(
                 _t.opp_hc, raw_odds, self.inverted_probs) * 1e4
-            bets.append("%.2f @ %.3f (%.2f lp, %.0f ep)" %
-                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl))
+            bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl), epnl])
 
         idx = np.concatenate(
             [np.repeat('H', len(back_home)), np.repeat('A', len(back_away))])
-        do_it = pd.DataFrame(bets, columns=['bet'], index=pd.Index(idx))
+        do_it = pd.DataFrame(bets, columns=['bet', 'epnl'], index=pd.Index(idx))
+        do_it.sort_values('epnl', ascending=False, inplace=True)
+        del do_it['epnl']
         ho, do, ao = self.clean_odds
         styler = do_it.style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
                                   (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
