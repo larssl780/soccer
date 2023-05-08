@@ -825,7 +825,7 @@ class skellam_calculator(poisson_calculator):
             oppo_fodds.append(offi)
         grid['opp_odds'] = oppo_fodds
         grid['opp_hc'] = oppo_hcs
-        
+
         max_loss_prob = self.max_loss_prob * 100
         back_home = grid.query(
             "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
@@ -844,7 +844,7 @@ class skellam_calculator(poisson_calculator):
             epnl = asian_expected_pnl_clubelo(
                 _t.hc, raw_odds, self.probs) * 1e4
             bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
-                        (_t.hc, raw_odds, 100 * _t.loss, epnl), epnl])
+                         (_t.hc, raw_odds, 100 * _t.loss, epnl), epnl])
 
             back_away = back_away.iloc[:1]
         for _t in back_away.itertuples():
@@ -852,17 +852,19 @@ class skellam_calculator(poisson_calculator):
             epnl = asian_expected_pnl_clubelo(
                 _t.opp_hc, raw_odds, self.inverted_probs) * 1e4
             bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
-                        (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl), epnl])
+                         (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl), epnl])
 
         idx = np.concatenate(
             [np.repeat('H', len(back_home)), np.repeat('A', len(back_away))])
-        do_it = pd.DataFrame(bets, columns=['bet', 'epnl'], index=pd.Index(idx))
+        do_it = pd.DataFrame(
+            bets, columns=['bet', 'epnl'], index=pd.Index(idx))
         do_it.sort_values('epnl', ascending=False, inplace=True)
-        del do_it['epnl']
+        # del do_it['epnl']
         ho, do, ao = self.clean_odds
-        styler = do_it.style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
-                                  (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
+        styler = do_it.drop(['epnl'], axis=1).style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
+                                                         (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
         return do_it, styler
+
 
 
 def find_all(line='', tag='', case=False, return_unique=False):
