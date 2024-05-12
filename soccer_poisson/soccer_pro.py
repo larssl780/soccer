@@ -65,7 +65,7 @@ def mov_probs_one_arg2(odds_and_potentially_extra_arg):
     return probs
 
 
-def mov_probs_skellam(home_odds, draw_odds, away_odds):
+def mov_probs_skellam(home_odds, draw_odds, away_odds, tolerance=1e-12):
     # [h, d, a] = remove_overround([home_odds, draw_odds, away_odds])
     win = 1 / home_odds
     draw = 1 / draw_odds
@@ -86,7 +86,7 @@ def mov_probs_skellam(home_odds, draw_odds, away_odds):
         return p[1]
 
     solution = optimize.minimize(f, np.array([2, 2]), constraints=(
-        {'type': 'ineq', 'fun': c_1}, {'type': 'ineq', 'fun': c_2}), tol=1e-12)
+        {'type': 'ineq', 'fun': c_1}, {'type': 'ineq', 'fun': c_2}), tol=tolerance)
 
     (mu1, mu2) = solution.x
 
@@ -368,11 +368,11 @@ def calculate_fair_odds_and_loss_prob(probs, hc):
 
     try:
         lp = loss_calc(hc=hc, probs=probs)
-    except:
+    except Exception:
         lp = np.nan
     try:
         fo = fair_asian_odds_clubelo(probs, hc)
-    except:
+    except Exception:
         # pdb.set_trace()
         fo = np.nan
 
@@ -454,7 +454,7 @@ def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
     # pdb.set_trace()
     try:
         loss_movs = list(movs[np.less(movs, cutoff)])
-    except:
+    except Exception:
         raise Exception("Failed to work out loss MoVs!")
 
     if add_inf:
@@ -759,12 +759,13 @@ class poisson_calculator:
 
 
 class skellam_calculator(poisson_calculator):
-    def __init__(self, home_odds=None, away_odds=None, draw_odds=None, commission=0.02, workers=1, max_loss_prob=0.3):
+    def __init__(self, home_odds=None, away_odds=None, draw_odds=None, commission=0.02, workers=1, max_loss_prob=0.3, tolerance=1e-12):
         super().__init__(home_odds=home_odds, away_odds=away_odds, draw_odds=draw_odds,
                          commission=commission, workers=1, max_loss_prob=max_loss_prob)
 
         self._mu1 = None
         self._mu2 = None
+        self._tolerance = tolerance
 
     @property
     def mu1(self):
@@ -783,12 +784,18 @@ class skellam_calculator(poisson_calculator):
         self._mu2 = value
 
     @property
+    def tolerance(self):
+        return self._tolerance
+    @tolerance.setter
+    def tolerance(self, value):
+        self._tolerance = value
+    @property
     def probs(self):
         """
         the overround gets removed inside the function:
         """
         probs, mu1, mu2 = mov_probs_skellam(
-            self.home_odds, self.draw_odds, self.away_odds)
+            self.home_odds, self.draw_odds, self.away_odds, self.tolerance)
 
         self.mu1 = mu1
         self.mu2 = mu2
@@ -806,6 +813,24 @@ class skellam_calculator(poisson_calculator):
         # print(self.probs)
         return self.mu1 - self.mu2
 
+    def validate_calibration(self):
+
+        win = 1 / self.home_odds
+        draw = 1 / self.draw_odds
+        lose = 1 / self.away_odds
+        # remove the overround:
+        k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
+
+        p_win = win ** k
+        p_draw = draw **k
+        p_lose = lose ** k
+
+        fitted_draw_prob = skellam.pmf(0, self.mu1, self.mu2)
+        fitted_lose_prob = skellam.cdf(-1, self.mu1, self.mu2)
+        fitted_win_prob = 1 - (fitted_draw_prob + fitted_lose_prob)
+
+        assert np.allclose([p_win, p_draw, p_lose], [fitted_win_prob, fitted_draw_prob, fitted_lose_prob]), "Failed calibration! (target p_h =%.4f, fit %.4f, p_d = %.4f, fit %.4f, p_a = %.4f, fit %.4f)" % (p_win, fitted_win_prob, p_draw, fitted_draw_prob, p_lose, fitted_lose_prob)
+        print("Calibration passed")
     def report(self):
         grid = self.grid(apply_max_loss=False)
         grid['fair_odds'] = grid.odds
@@ -815,7 +840,7 @@ class skellam_calculator(poisson_calculator):
             try:
                 offi = betfair_equivalent_odds(
                     _offsetting_odds(betfair_net_odds(_tuple.fair_odds)))
-            except:
+            except Exception:
                 oppo_hc = -1 * _tuple.hc
                 oppo_hcs.append(oppo_hc)
                 oppo_fodds.append(np.nan)
@@ -902,7 +927,7 @@ def parse_oddsportal_page(text=None, skip_finished=True):
             continue
         try:
             next_idx = idxs[i + 1]
-        except:
+        except Exception:
             next_idx = -1
 
         search_text = text[idx:next_idx]
