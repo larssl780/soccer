@@ -8,6 +8,10 @@ import re
 # import pdb
 
 
+def betfair_equivalent_odds(net_odds=None, commission=0.02):
+    return (net_odds - 1) / (1 - commission) + 1
+
+
 def make_pretty(styler, cap=''):
     styler.set_caption(cap)
     # styler.format(precision=3)
@@ -299,10 +303,10 @@ def asian_non_quarter_handicaps():
     return np.arange(-8.5, 7.5 + 1e-4, 0.5)
 
 
-def asian_handicaps():
+def asian_handicaps(min_hc=-np.infty, max_hc=np.infty):
     raw = list(asian_quarter_handicaps()) + list(asian_non_quarter_handicaps())
     raw.sort()
-    return raw
+    return [x for x in raw if (x >= min_hc) and (x <= max_hc)]
 
 
 def _offsetting_odds(odds=None):
@@ -379,9 +383,31 @@ def calculate_fair_odds_and_loss_prob(probs, hc):
     return hc, fo, lp
 
 
+def calculate_fair_odds_and_loss_prob_anal(mu1, mu2, hc):
+
+    try:
+        lp = loss_calc_anal(hc=hc, mu1=mu1, mu2=mu2)
+    except Exception:
+        lp = np.nan
+    try:
+        fo = fair_asian_odds_anal(mu1, mu2, hc)
+    except Exception:
+        # pdb.set_trace()
+        fo = np.nan
+
+    return hc, fo, lp
+
+
 def calculate_betfair_odds_and_loss_prob(hc, probs=None, commission=0.02):
 
     hc, fo, lp = calculate_fair_odds_and_loss_prob(probs, hc)
+
+    return betfair_equivalent_odds(fo, commission=commission), lp
+
+
+def calculate_betfair_odds_and_loss_prob_anal(hc, mu1, mu2, commission=0.02):
+
+    hc, fo, lp = calculate_fair_odds_and_loss_prob_anal(mu1, mu2, hc)
 
     return betfair_equivalent_odds(fo, commission=commission), lp
 
@@ -394,17 +420,16 @@ def fair_asian_odds_clubelo(mov_probs, home_team_handicap):
     return optimize.brentq(lambda odds: asian_expected_pnl_clubelo(home_team_handicap, odds, mov_probs), 1, 15)
 
 
+def fair_asian_odds_anal(mu1, mu2, home_team_handicap):
+    """
+    return the odds for which the epnl is 0
+    """
+
+    return optimize.brentq(lambda odds: asian_expected_pnl(home_team_handicap, odds, mu1, mu2), 1, 15)
+
+
 def betfair_net_odds(nom_odds=None, commission=0.02):
     return (nom_odds - 1) * (1 - commission) + 1
-
-
-def betfair_equivalent_odds(net_odds=None, commission=0.02):
-    """Given some theoretical fair odds - what's the odds that we have to see on betfair in order to make money?
-    Ie. if fair odds is fo, then bf equivalent odds would be fo *(1+eps), eps>0
-
-
-    """
-    return (net_odds - 1) / (1 - commission) + 1
 
 
 def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
@@ -470,8 +495,96 @@ def loss_calc(home='', dt='', hc=None, probs=None, movs=None, verbose=False):
     return prob
 
 
+def loss_calc_anal(home='', dt='', hc=None, probs=None, movs=None, verbose=False, mu1=None, mu2=None):
+
+    # for hc -0.5, if mov is less than 1, we've lost
+    nqh = asian_non_quarter_handicaps()
+    qh = asian_quarter_handicaps()
+    if hc == -0.5:
+        cutoff = 1
+    elif hc == -.75:
+        cutoff = 1
+    elif hc in [0.5, 0.75]:
+        cutoff = 0
+    elif hc in nqh:
+        if hc < 0:
+            if int(hc) == hc:
+                # eg. -2, -3 etc
+                cutoff = -hc
+            else:
+                # eg -2.5 , -1.5 etc
+                cutoff = -hc + 0.5
+        else:
+            if int(hc) == hc:
+                # eg +2, +3 etc
+                cutoff = -hc
+            else:
+                # eg +2.5
+                cutoff = -hc + 0.5
+    elif hc in qh:
+        # pdb.set_trace()
+        if hc < 0:
+            cutoff = np.ceil(-hc)
+        else:
+            cutoff = -np.floor(hc)
+            # if int(hc) == hc:
+            # print('hej')
+            # else:
+
+    # pdb.set_trace()
+
+    loss_prob = skellam.cdf(cutoff, mu1, mu2) - skellam.pmf(cutoff, mu1, mu2)
+    return loss_prob
+
+
 def rmse(targets, predictions):
     return np.sqrt(((targets - predictions)**2).mean())
+
+
+def prob_mov_less(x, mu1, mu2):
+    return skellam.cdf(x, mu1, mu2) - skellam.pmf(x, mu1, mu2)
+
+
+def prob_mov_equal(x, mu1, mu2):
+    return skellam.pmf(x, mu1, mu2)
+
+
+def prob_mov_greater(x, mu1, mu2):
+    return 1 - skellam.cdf(x, mu1, mu2)
+
+
+def prob_mov_greater_equal(x, mu1, mu2):
+    return 1 - skellam.cdf(x, mu1, mu2) + skellam.pmf(x, mu1, mu2)
+
+
+def asian_expected_pnl(hc, odds, mu1, mu2):
+    # asian_expected_pnl(home_team_handicap, odds, mu1, mu2)
+
+    if hc in asian_quarter_handicaps():
+        lower = hc - 0.25
+        higher = hc + 0.25
+        # pdb.set_trace()
+        if int(lower) == lower:
+            low_even = True
+        else:
+            low_even = False
+        if hc < 0:
+            if low_even:
+                return -1 * prob_mov_less(-lower, mu1, mu2) + 0.5 * (odds - 1) * prob_mov_equal(-lower, mu1, mu2) + (odds - 1) * prob_mov_greater(-lower, mu1, mu2)
+            else:
+                return -1 * prob_mov_less(-higher, mu1, mu2) - 0.5 * prob_mov_equal(-higher, mu1, mu2) + (odds - 1) * prob_mov_greater_equal(-lower + 0.5, mu1, mu2)
+        else:
+            if low_even:
+                return -1 * prob_mov_less(-higher + 0.5, mu1, mu2) + 0.5 * (odds - 1) * prob_mov_equal(-lower, mu1, mu2) + (odds - 1) * prob_mov_greater(-lower, mu1, mu2)
+            else:
+                return -1 * prob_mov_less(-higher, mu1, mu2) - 0.5 * prob_mov_equal(-higher, mu1, mu2) + (odds - 1) * prob_mov_greater(-higher, mu1, mu2)
+                # p_make_money = clf.prob_mov_greater(elo_arg, -higher)
+
+    elif hc in asian_non_quarter_handicaps():
+        return -1 * prob_mov_less(-hc, mu1, mu2) + (odds - 1) * prob_mov_greater(-hc, mu1, mu2)
+
+    else:
+        raise NotImplementedError("Handicap = %2.2f not handled yet" % hc)
 
 
 def asian_expected_pnl_clubelo(hc, odds, mov_probs):
@@ -648,6 +761,21 @@ class poisson_calculator:
             self.away_odds = away_odds
         return -1 * self.expected_mov
 
+    def grid_anal(self, apply_max_loss=True, use_rmse=False, min_hc=-np.infty, max_hc=np.infty):
+
+        odds_bf = [calculate_betfair_odds_and_loss_prob_anal(
+            hc, self.mu1, self.mu2) for hc in asian_handicaps(min_hc, max_hc)]
+        grid_bf = asian_handicaps(min_hc, max_hc)
+
+        agrid = np.array(grid_bf).reshape(len(grid_bf), 1)
+        raw_grid = pd.DataFrame(np.hstack([agrid, np.array((odds_bf))]), columns=[
+                                'hc', 'odds', 'loss']).dropna()
+        if not apply_max_loss:
+            return raw_grid
+
+        mlp = self.max_loss_prob  # NOQA: F841
+        return raw_grid.query("loss <= @mlp")
+
     def grid(self, apply_max_loss=True, use_rmse=False):
         probs = self.probs
         if use_rmse:
@@ -687,6 +815,18 @@ class poisson_calculator:
             self.away_odds = away_odds
         return loss_calc(hc=handicap, probs=self.probs)
 
+    def loss_prob_anal(self, handicap, **kwargs):
+
+        home_odds = kwargs.pop('home_odds', None)
+        draw_odds = kwargs.pop('draw_odds', None)
+        away_odds = kwargs.pop('away_odds', None)
+
+        if (home_odds is not None) and (draw_odds is not None) and (away_odds is not None):
+            self.home_odds = home_odds
+            self.draw_odds = draw_odds
+            self.away_odds = away_odds
+        return loss_calc_anal(hc=handicap, mu1=self.mu1, mu2=self.mu2)
+
     def recommended_bet(self, use_rmse=False, **kwargs):
 
         home_odds = kwargs.pop('home_odds', None)
@@ -700,6 +840,28 @@ class poisson_calculator:
             self.away_odds = away_odds
             self.max_loss_prob = loss_probi
         df = self.grid(use_rmse=use_rmse)
+        tmp = df[df.odds == df.odds.max()].iloc[0]
+
+        fo = np.ceil(100 * tmp.odds) / 100
+        hc = tmp.hc
+        if int(hc) == hc:
+            return '%d@%.2f' % (hc, fo)
+
+        return '%.2f@%.2f' % (hc, fo)
+
+    def recommended_bet_anal(self, use_rmse=False, **kwargs):
+
+        home_odds = kwargs.pop('home_odds', None)
+        draw_odds = kwargs.pop('draw_odds', None)
+        away_odds = kwargs.pop('away_odds', None)
+        loss_probi = kwargs.pop('cutoff_lp', None)
+
+        if (home_odds is not None) and (draw_odds is not None) and (away_odds is not None) and (loss_probi is not None):
+            self.home_odds = home_odds
+            self.draw_odds = draw_odds
+            self.away_odds = away_odds
+            self.max_loss_prob = loss_probi
+        df = self.grid_anal(use_rmse=use_rmse)
         tmp = df[df.odds == df.odds.max()].iloc[0]
 
         fo = np.ceil(100 * tmp.odds) / 100
@@ -763,9 +925,27 @@ class skellam_calculator(poisson_calculator):
         super().__init__(home_odds=home_odds, away_odds=away_odds, draw_odds=draw_odds,
                          commission=commission, workers=1, max_loss_prob=max_loss_prob)
 
-        self._mu1 = None
-        self._mu2 = None
-        self._tolerance = tolerance
+        if np.all([x is not None for x in [home_odds, draw_odds, away_odds]]):
+            probs, mu1, mu2 = mov_probs_skellam(
+                home_odds, draw_odds, away_odds, tolerance)
+
+            self._mu1 = mu1
+            self._mu2 = mu2
+
+            self.skellam_is_fitted = True
+        else:
+            self._mu1 = None
+            self._mu2 = None
+            self._tolerance = tolerance
+            self._skellam_is_fitted = False
+
+    @property
+    def skellam_is_fitted(self):
+        return self._skellam_is_fitted
+
+    @skellam_is_fitted.setter
+    def skellam_is_fitted(self, value):
+        self._skellam_is_fitted = value
 
     @property
     def mu1(self):
@@ -786,9 +966,11 @@ class skellam_calculator(poisson_calculator):
     @property
     def tolerance(self):
         return self._tolerance
+
     @tolerance.setter
     def tolerance(self, value):
         self._tolerance = value
+
     @property
     def probs(self):
         """
@@ -799,6 +981,8 @@ class skellam_calculator(poisson_calculator):
 
         self.mu1 = mu1
         self.mu2 = mu2
+
+        self.skellam_is_fitted = True
         return probs
 
     @property
@@ -822,15 +1006,17 @@ class skellam_calculator(poisson_calculator):
         k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
 
         p_win = win ** k
-        p_draw = draw **k
+        p_draw = draw ** k
         p_lose = lose ** k
 
         fitted_draw_prob = skellam.pmf(0, self.mu1, self.mu2)
         fitted_lose_prob = skellam.cdf(-1, self.mu1, self.mu2)
         fitted_win_prob = 1 - (fitted_draw_prob + fitted_lose_prob)
 
-        assert np.allclose([p_win, p_draw, p_lose], [fitted_win_prob, fitted_draw_prob, fitted_lose_prob]), "Failed calibration! (target p_h =%.4f, fit %.4f, p_d = %.4f, fit %.4f, p_a = %.4f, fit %.4f)" % (p_win, fitted_win_prob, p_draw, fitted_draw_prob, p_lose, fitted_lose_prob)
+        assert np.allclose([p_win, p_draw, p_lose], [fitted_win_prob, fitted_draw_prob, fitted_lose_prob]), "Failed calibration! (target p_h =%.4f, fit %.4f, p_d = %.4f, fit %.4f, p_a = %.4f, fit %.4f)" % (
+            p_win, fitted_win_prob, p_draw, fitted_draw_prob, p_lose, fitted_lose_prob)
         print("Calibration passed")
+
     def report(self):
         grid = self.grid(apply_max_loss=False)
         grid['fair_odds'] = grid.odds
@@ -890,6 +1076,66 @@ class skellam_calculator(poisson_calculator):
                                                          (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
         return do_it, styler
 
+    def report_anal(self):
+        if not self.skellam_is_fitted:
+            self.probs
+        grid = self.grid_anal(apply_max_loss=False)
+        grid['fair_odds'] = grid.odds
+        oppo_hcs = []
+        oppo_fodds = []
+        for _tuple in grid.itertuples():
+            try:
+                offi = betfair_equivalent_odds(
+                    _offsetting_odds(betfair_net_odds(_tuple.fair_odds)))
+            except Exception:
+                oppo_hc = -1 * _tuple.hc
+                oppo_hcs.append(oppo_hc)
+                oppo_fodds.append(np.nan)
+                continue
+            oppo_hc = -1 * _tuple.hc
+            oppo_hcs.append(oppo_hc)
+            oppo_fodds.append(offi)
+        grid['opp_odds'] = oppo_fodds
+        grid['opp_hc'] = oppo_hcs
+
+        max_loss_prob = self.max_loss_prob * 100
+        back_home = grid.query(
+            "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
+        back_away = grid.query(
+            "loss.mul(100) >= (100-@max_loss_prob) and opp_odds > 1.14", engine='python').copy()
+        back_away.sort_values(['loss', 'opp_odds'],
+                              ascending=[1, 0], inplace=True)
+        # pdb.set_trace()
+        bets = []
+
+        back_home = back_home.iloc[:1]
+        for _t in back_home.itertuples():
+            raw_odds = np.ceil(_t.fair_odds * 100) / 100
+
+            # pdb.set_trace()
+            epnl = asian_expected_pnl(
+                _t.hc, raw_odds, self.mu1, self.mu2) * 1e4
+            bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                         (_t.hc, raw_odds, 100 * _t.loss, epnl), epnl])
+
+            back_away = back_away.iloc[:1]
+        for _t in back_away.itertuples():
+            raw_odds = np.ceil(_t.opp_odds * 100) / 100
+            epnl = asian_expected_pnl(
+                _t.opp_hc, raw_odds, self.mu2, self.mu1) * 1e4
+            bets.append(["%.2f @ %.3f (%.2f lp, %.0f ep)" %
+                         (_t.opp_hc, raw_odds, 100 * (1 - _t.loss), epnl), epnl])
+
+        idx = np.concatenate(
+            [np.repeat('H', len(back_home)), np.repeat('A', len(back_away))])
+        do_it = pd.DataFrame(
+            bets, columns=['bet', 'epnl'], index=pd.Index(idx))
+        do_it.sort_values('epnl', ascending=False, inplace=True)
+        # del do_it['epnl']
+        ho, do, ao = self.clean_odds
+        styler = do_it.drop(['epnl'], axis=1).style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
+                                                         (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
+        return do_it, styler
 
 
 def find_all(line='', tag='', case=False, return_unique=False):
