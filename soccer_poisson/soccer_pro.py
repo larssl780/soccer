@@ -895,6 +895,57 @@ class poisson_calculator:
 
         return _grid[['opp_hc', 'opp_odds', 'opp_lp']]
 
+    def anal_top_n_bets(self, top_n=5, min_hc=-np.infty, max_hc=np.infty, max_loss_prob=None, tag=None, min_odds=1.14):
+
+        raw_grid = self.grid_anal(min_hc=min_hc, max_hc=max_hc)
+        raw_grid_opp = self.opponent_grid_anal(min_hc=min_hc, max_hc=max_hc)
+        
+        out = []
+        if max_loss_prob is None:
+            max_loss_prob = self.max_loss_prob
+        for _t in raw_grid.itertuples():
+            rounded_odds = np.ceil(_t.odds*100)/100
+            epnl = asian_expected_pnl(_t.hc, rounded_odds, self.mu1, self.mu2) * 1e4        
+            out.append(['home', _t.hc, rounded_odds, epnl, _t.loss])
+
+        for _t in raw_grid_opp.itertuples():
+            rounded_odds = np.ceil(_t.opp_odds*100)/100
+            epnl = asian_expected_pnl(_t.opp_hc, rounded_odds, self.mu2, self.mu1) * 1e4        
+            out.append(['away', _t.opp_hc, rounded_odds, epnl, _t.opp_lp])
+
+        combo = pd.DataFrame(out, columns=['side', 'hc', 'odds', 'epnl', 'loss'])
+        combo = combo[(combo.loss <= max_loss_prob) & (combo.odds >= min_odds)]
+        if tag is not None:
+            combo['home'] = [tag] * len(combo)
+        else:
+            combo['home'] = ['n/a'] * len(combo)
+        return combo.nlargest(top_n, 'epnl')
+
+
+    def opponent_grid_anal(self, use_rmse=False, min_hc=-np.infty, max_hc=np.infty):
+        """
+        what's the best bet from the opponent's perspective?
+        """
+        _grid = self.grid_anal(apply_max_loss=False, use_rmse=use_rmse, min_hc=min_hc, max_hc=max_hc)
+        # to avoid divide by zero:
+        _grid = _grid.query("odds != 1")
+        oppo_hcs = []
+        oppo_fodds = []
+        lossis = []
+        for _tuple in _grid.itertuples():
+            # remove the betfair commission:
+            offi = betfair_equivalent_odds(
+                _offsetting_odds(betfair_net_odds(_tuple.odds)))
+            oppo_hc = -1 * _tuple.hc
+            oppo_hcs.append(oppo_hc)
+            oppo_fodds.append(offi)
+            lossis.append(1 - _tuple.loss)
+        _grid['opp_odds'] = oppo_fodds
+        _grid['opp_hc'] = oppo_hcs
+        _grid['opp_lp'] = lossis
+
+        return _grid[['opp_hc', 'opp_odds', 'opp_lp']]
+
     def opponent_recommended_bet(self, loss_limit=0.3, use_rmse=False, **kwargs):
 
         home_odds = kwargs.pop('home_odds', None)
@@ -933,6 +984,7 @@ class skellam_calculator(poisson_calculator):
             self._mu2 = mu2
 
             self.skellam_is_fitted = True
+            self._tolerance = tolerance
         else:
             self._mu1 = None
             self._mu2 = None
@@ -1076,7 +1128,7 @@ class skellam_calculator(poisson_calculator):
                                                          (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
         return do_it, styler
 
-    def report_anal(self):
+    def report_anal(self, tag=None):
         if not self.skellam_is_fitted:
             self.probs
         grid = self.grid_anal(apply_max_loss=False)
@@ -1132,9 +1184,13 @@ class skellam_calculator(poisson_calculator):
             bets, columns=['bet', 'epnl'], index=pd.Index(idx))
         do_it.sort_values('epnl', ascending=False, inplace=True)
         # del do_it['epnl']
-        ho, do, ao = self.clean_odds
-        styler = do_it.drop(['epnl'], axis=1).style.pipe(make_pretty, 'Bets %s (%.2f-%.2f-%.2f: %.2f)' %
-                                                         (pd.to_datetime('now').strftime('%H:%M'), ho, do, ao, self.predicted_spread()))
+        # ho, do, ao = self.clean_odds
+        if isinstance(tag, str):
+            text = '%s ' % tag
+        else:
+            text = 'Bets '
+        styler = do_it.drop(['epnl'], axis=1).style.pipe(make_pretty, '%s%s (%.2f-%.2f-%.2f: %.2f)' %
+                                                         (text, pd.to_datetime('now').strftime('%H:%M'), self.home_odds, self.draw_odds, self.away_odds, self.predicted_spread()))
         return do_it, styler
 
 
