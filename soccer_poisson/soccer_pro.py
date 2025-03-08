@@ -2,8 +2,9 @@ import numpy as np
 from scipy import optimize
 from scipy.stats import skellam
 import pandas as pd
-from thin_wrappers import grid_runner as gr
-from thin_wrappers.utils import find_all_indicies
+if False:
+    from thin_wrappers import grid_runner as gr
+    from thin_wrappers.utils import find_all_indicies
 import re
 # import pdb
 
