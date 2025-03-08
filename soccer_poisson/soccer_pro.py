@@ -5,6 +5,9 @@ import pandas as pd
 if False:
     from thin_wrappers import grid_runner as gr
     from thin_wrappers.utils import find_all_indicies
+else:
+    gr = None
+    find_all_indicies = None
 import re
 # import pdb
 
