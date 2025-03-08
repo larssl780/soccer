@@ -2,6 +2,8 @@ import numpy as np
 from scipy import optimize
 from scipy.stats import skellam
 import pandas as pd
+from pathlib import Path
+import shutil
 if False:
     from thin_wrappers import grid_runner as gr
     from thin_wrappers.utils import find_all_indicies
@@ -11,6 +13,10 @@ else:
 import re
 # import pdb
 
+country_isos = ['it', 'tr', 'de', 'pl', 'be', 'es', 'cl', 'gr', 'at', 'fr', 'ch', 'nl', 'pt', 'us', 'ar', 'co', 'en', 'dk']
+countries = ['Poland', 'Italy', 'France', 'Turkey', 'Germany', 'Spain', 'Belgium', 'Chile', 'Greece', 'Scotland', 'England', 'Denmark']
+
+leagues = ['Serie A','Super Lig', 'Ekstraklasa', 'Bundesliga', 'Jupiler Pro League', 'Super League', 'Premiership', 'Eredivisie', 'LaLiga2', 'Liga Portugal', 'Ligue 1', 'LaLiga', 'MLS', 'Premier League']
 
 def betfair_equivalent_odds(net_odds=None, commission=0.02):
     return (net_odds - 1) / (1 - commission) + 1
@@ -1273,3 +1279,69 @@ def parse_oddsportal_page(text=None, skip_finished=True):
             continue
         out.append(row)
     return pd.DataFrame(out, columns=['game_id', 'match', 'time', 'home', 'draw', 'away'])
+
+
+def list_split(lista, n, reverse=False):
+    if reverse:
+        lista.reverse()
+    n = max(1, n)
+    return [lista[i:i + n] for i in range(0, len(lista), n)]
+
+def parse_raw_text_dump(text):
+    # get rid of times:
+    text = re.sub(r'\d{2}:\d{2}', '', text)
+
+    odds_idxs = list(re.finditer(r'\d+\.\d+', text))
+
+
+    # just mash together the inbetween text:
+    # out = []
+    groups = list_split(odds_idxs, 3)
+    prev_idx = 0
+
+    out_text = ''
+    for idxs in groups:
+        odds_entries = [float(x.group()) for x in idxs]
+
+        preceding_text = text[prev_idx:idxs[0].start()]
+
+        # print(preceding_text)
+        use_this_text = preceding_text.strip().replace('\n', '')
+
+
+
+        use_this_text = use_this_text.replace('Football', '').replace('img', '').replace('Poland', '').replace('Italy', '').replace('Germany', '').replace('Turkey', '').replace('Serie A', '').replace('Super Lig', '').replace('Ekstraklasa', '')
+
+        # pdb.set_trace()
+        use_this_text = use_this_text.replace("1X2B", '')
+
+        use_this_text = use_this_text.replace("'s", '')
+        # country_isos = ['it', 'tr', 'de', 'pl']
+
+        for country in country_isos:
+            use_this_text = use_this_text.replace('/%s/' % country, '')
+        for country in country_isos:
+            use_this_text = use_this_text.replace('/%s' % country, '')
+        for country in countries:
+            use_this_text = use_this_text.replace(country, '')
+        for league in leagues:
+            use_this_text = use_this_text.replace(league, '')
+        # use_this_text = use_this_text.replace('/it/', '').replace('/tr/', '').replace('/de/', '').replace('/pl/', '')
+        use_this_text = re.sub(r'Today, \d{2} [A-Z][a-z]{2}', '', use_this_text)
+        use_this_text = re.sub(r'\s*', '', use_this_text)
+        use_this_text = use_this_text[:15]
+        print(use_this_text)
+
+        out_text += use_this_text + '\n'
+
+        for oo in odds_entries:
+            out_text += '%.3f\n' % oo
+
+        prev_idx = idxs[-1].end()
+
+        # out.append([preceding_text] + odds_entries)
+
+
+    shutil.copy('bets.txt', 'bets_bkup.txt')
+    # temp_name = 'bets_%d.txt' % (pd.to_datetime('today').to_numpy().astype(int)/1e9)
+    Path('bets.txt').write_text(out_text)
