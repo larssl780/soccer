@@ -4,6 +4,7 @@ from scipy.stats import skellam
 import pandas as pd
 from pathlib import Path
 import shutil
+import os
 if False:
     from thin_wrappers import grid_runner as gr
     from thin_wrappers.utils import find_all_indicies
@@ -11,6 +12,8 @@ else:
     gr = None
     find_all_indicies = None
 import re
+import tabulate
+from tqdm import tqdm
 # import pdb
 
 country_isos = ['it', 'tr', 'de', 'pl', 'be', 'es', 'cl', 'gr', 'at', 'fr', 'ch', 'nl', 'pt', 'us', 'ar', 'co', 'en', 'dk']
@@ -1345,3 +1348,91 @@ def parse_raw_text_dump(text):
     shutil.copy('bets.txt', 'bets_bkup.txt')
     # temp_name = 'bets_%d.txt' % (pd.to_datetime('today').to_numpy().astype(int)/1e9)
     Path('bets.txt').write_text(out_text)
+
+def parse_bets(filename):
+    with open(filename, 'r') as fp:
+        text = fp.read()
+
+    rows = text.split('\n')
+    teams = rows[0::4]
+    home_odds = rows[1::4]
+    draw_odds = rows[2::4]
+    away_odds = rows[3::4]
+    all_odds = []
+    for i in range(len(teams)):
+        try:
+            all_odds.append((teams[i], float(home_odds[i]), float(draw_odds[i]), float(away_odds[i])))
+        except Exception:
+            continue
+
+    return all_odds
+
+
+def parse_odds_inputs(odds_mongo):
+
+    if ',' in odds_mongo:
+        ho, do, ao = list(map(float, odds_mongo.split(',')))
+    else:
+        ho, do, ao = list(map(float, odds_mongo.split()))
+    all_odds = [('single_game', ho, do, ao)]
+    return all_odds
+
+def parse_file_input(filename='bets.txt', clean_text_file=False):
+
+    assert os.path.exists(filename), "Please upload file called %s!" % filename
+    if clean_text_file:
+        parse_raw_text_dump(Path(filename).read_text())
+    all_odds = parse_bets(filename)
+    return all_odds
+
+def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal'):
+    pcalc = skellam_calculator(commission=commission)
+    html_text = '<html>'
+
+
+
+
+
+
+
+    dfs = []
+    for tag, ho, do, ao in tqdm(all_odds):
+        pcalc.home_odds = ho
+        pcalc.draw_odds = do
+        pcalc.away_odds = ao
+  
+        pcalc.probs
+        pcalc.validate_calibration()
+
+    
+      
+        
+        df = pcalc.grid_anal(min_hc = -4, max_hc =4)
+        dummy, styler = pcalc.report_anal(tag)
+        df = pcalc.anal_top_n_bets(min_hc=-4, max_hc=4, tag=tag)
+  
+        print('mu1=%.3f, mu2=%.3f' % (pcalc.mu1, pcalc.mu2))
+
+    # fair_spread_bets(pcalc.mu1, pcalc.mu2)
+    
+
+        
+    
+        df = df.iloc[:5].copy()
+        df['home'] = [tag] * len(df)
+        dfs.append(df)
+    html_text += '</html>'
+    with open("bet_report.html", 'w') as fp:
+        fp.write(html_text)
+
+
+
+
+    toto = pd.concat(dfs)
+    print("===TOP 10 BETS===")
+    print(tabulate.tabulate(toto.round(3).nlargest(10, 'epnl'), showindex=False, headers=['side','hc','odds', 'ep', 'lp', 'home_team']))
+    print('===All Bets===')
+    print(tabulate.tabulate(toto.round(3), showindex=False, headers=['side','hc','odds', 'ep', 'lp', 'home_team']))
+    ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
+    with open('bet_report_full_%s.html' % ts, 'w') as fp:
+        fp.write('<html>%s</html>' % toto.round(3).to_html(index=False))
