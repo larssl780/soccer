@@ -5,6 +5,8 @@ import pandas as pd
 from pathlib import Path
 import shutil
 import os
+import time
+import requests
 if False:
     from thin_wrappers import grid_runner as gr
     from thin_wrappers.utils import find_all_indicies
@@ -14,6 +16,7 @@ else:
 import re
 import tabulate
 from tqdm import tqdm
+import json
 # import pdb
 
 country_isos = ['it', 'tr', 'de', 'pl', 'be', 'es', 'cl', 'gr', 'at', 'fr', 'ch', 'nl', 'pt', 'us', 'ar', 'co', 'en', 'dk']
@@ -1436,3 +1439,57 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal'):
     ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
     with open('bet_report_full_%s.html' % ts, 'w') as fp:
         fp.write('<html>%s</html>' % toto.round(3).to_html(index=False))
+
+
+def get_matches_from_api(data=None, api_key=''):
+
+    if data is None:
+        
+        url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=%s' % api_key
+        res = requests.get(url)
+        data = res.json()
+        with open('api_data_%d.json' % (int(time.time())), 'w') as fp:
+            json.dump(data, fp)
+
+    out = []
+    now = pd.to_datetime("now")
+    now_secs = now.hour * 3600+ now.minute*60
+
+    for el in data:
+        ht = el['home_team']
+        ts = pd.to_datetime(el["commence_time"])
+        this_seconds = ts.hour*3600+ts.minute*60
+
+        if this_seconds< now_secs:
+            continue
+        row = [el['sport_title'], el['commence_time'], el['home_team'] ]
+    
+        ht_odds_arr = []
+        draw_odds_arr = []
+        away_odds_arr = []
+        for sub_el in el['bookmakers']:
+            ht_odds_arr.append([x for x in  sub_el['markets'][0]['outcomes'] if x['name'] == ht][0]['price'])
+            draw_odds_arr.append([x for x in  sub_el['markets'][0]['outcomes'] if x['name'] == 'Draw'][0]['price'])
+            away_odds_arr.append([x for x in  sub_el['markets'][0]['outcomes'] if x['name'] not in ['Draw', ht]][0]['price'])
+
+        ht_odds = np.mean(ht_odds_arr)
+        draw_odds = np.mean(draw_odds_arr)
+        away_odds = np.mean(away_odds_arr)
+        row += [ht_odds, draw_odds, away_odds]
+        out.append(row)
+
+
+
+    return pd.DataFrame(out, columns=['event', 'time', 'home_team', 'home_odds', 'draw_odds', 'away_odds' ])
+def process_odds_from_api():
+    df = get_matches_from_api()
+    text = ''
+    for _t in df.itertuples():
+        text += '%s (%s %s)\n' % (_t.home_team, _t.event, _t.time)
+        text += '%.2f\n%.2f\n%.2f\n' % (_t.home_odds, _t.draw_odds, _t.away_odds)
+
+    with open('bets.txt', 'w') as fp:
+        fp.write(text)
+    return parse_bets('bets.txt')
+
+
