@@ -1481,8 +1481,8 @@ def get_matches_from_api(data=None, api_key=''):
 
 
     return pd.DataFrame(out, columns=['event', 'time', 'home_team', 'home_odds', 'draw_odds', 'away_odds' ])
-def process_odds_from_api():
-    df = get_matches_from_api()
+def process_odds_from_api(api_key=''):
+    df = get_matches_from_api(api_key=api_key)
     text = ''
     for _t in df.itertuples():
         text += '%s (%s %s)\n' % (_t.home_team, _t.event, _t.time)
