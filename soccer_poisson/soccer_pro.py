@@ -1303,6 +1303,9 @@ def parse_raw_text_dump(text):
     # just mash together the inbetween text:
     # out = []
     groups = list_split(odds_idxs, 3)
+
+    assert sum([len(x) == 3 for x in groups]) == len(groups)
+    # pdb.set_trace()
     prev_idx = 0
 
     out_text = ''
