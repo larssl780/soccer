@@ -319,7 +319,7 @@ def asian_non_quarter_handicaps():
     return np.arange(-8.5, 7.5 + 1e-4, 0.5)
 
 
-def asian_handicaps(min_hc=-np.infty, max_hc=np.infty):
+def asian_handicaps(min_hc=-np.inf, max_hc=np.inf):
     raw = list(asian_quarter_handicaps()) + list(asian_non_quarter_handicaps())
     raw.sort()
     return [x for x in raw if (x >= min_hc) and (x <= max_hc)]
@@ -777,7 +777,7 @@ class poisson_calculator:
             self.away_odds = away_odds
         return -1 * self.expected_mov
 
-    def grid_anal(self, apply_max_loss=True, use_rmse=False, min_hc=-np.infty, max_hc=np.infty):
+    def grid_anal(self, apply_max_loss=True, use_rmse=False, min_hc=-np.inf, max_hc=np.inf):
 
         odds_bf = [calculate_betfair_odds_and_loss_prob_anal(
             hc, self.mu1, self.mu2) for hc in asian_handicaps(min_hc, max_hc)]
@@ -911,7 +911,7 @@ class poisson_calculator:
 
         return _grid[['opp_hc', 'opp_odds', 'opp_lp']]
 
-    def anal_top_n_bets(self, top_n=5, min_hc=-np.infty, max_hc=np.infty, max_loss_prob=None, tag=None, min_odds=1.14):
+    def anal_top_n_bets(self, top_n=5, min_hc=-np.inf, max_hc=np.inf, max_loss_prob=None, tag=None, min_odds=1.14):
 
         raw_grid = self.grid_anal(min_hc=min_hc, max_hc=max_hc)
         raw_grid_opp = self.opponent_grid_anal(min_hc=min_hc, max_hc=max_hc)
@@ -938,7 +938,7 @@ class poisson_calculator:
         return combo.nlargest(top_n, 'epnl')
 
 
-    def opponent_grid_anal(self, use_rmse=False, min_hc=-np.infty, max_hc=np.infty):
+    def opponent_grid_anal(self, use_rmse=False, min_hc=-np.inf, max_hc=np.inf):
         """
         what's the best bet from the opponent's perspective?
         """
