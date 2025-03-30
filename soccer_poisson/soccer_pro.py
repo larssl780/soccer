@@ -1408,7 +1408,11 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal'):
         pcalc.away_odds = ao
   
         pcalc.probs
-        pcalc.validate_calibration()
+        try:
+            pcalc.validate_calibration()
+        except Exception as e:
+            print("Failed to calibrate %s: %s" % (tag, str(e)))
+            continue
 
     
       
