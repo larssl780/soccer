@@ -17,6 +17,7 @@ import re
 import tabulate
 from tqdm import tqdm
 import json
+# from pathlib import Path
 # import pdb
 
 country_isos = ['it', 'tr', 'de', 'pl', 'be', 'es', 'cl', 'gr', 'at', 'fr', 'ch', 'nl', 'pt', 'us', 'ar', 'co', 'en', 'dk']
@@ -1499,4 +1500,15 @@ def process_odds_from_api(api_key=''):
         fp.write(text)
     return parse_bets('bets.txt')
 
+def process_odds_from_github():
+    """
+    read bets file from github
+    """
+    url = 'https://raw.githubusercontent.com/larssl780/soccer/refs/heads/standalone/soccer_poisson/bets.txt'
 
+    res = requests.get(url)
+
+    Path('bets.txt').write_text(res.text)
+
+    all_odds = parse_bets('bets.txt')
+    return process_inputs(all_odds=all_odds)
