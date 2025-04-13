@@ -1377,11 +1377,25 @@ def parse_bets(filename):
 
 def parse_odds_inputs(odds_mongo):
 
-    if ',' in odds_mongo:
-        ho, do, ao = list(map(float, odds_mongo.split(',')))
-    else:
-        ho, do, ao = list(map(float, odds_mongo.split()))
-    all_odds = [('single_game', ho, do, ao)]
+    try:
+        if ',' in odds_mongo:
+            ho, do, ao = list(map(float, odds_mongo.split(',')))
+        else:
+            ho, do, ao = list(map(float, odds_mongo.split()))
+        all_odds = [('single_game', ho, do, ao)]
+    except:
+        # the above will presumably break if we have more than 3 odds?
+        if ',' in odds_mongo:
+            raw_odds = list(map(float, odds_mongo.split(',')))
+        else:
+            raw_odds = list(map(float, odds_mongo.split()))
+        odds_groups = list_split(raw_odds, 3)
+        assert np.all([len(x) == 3 for x in odds_groups]), "couldn't divide odds into groups of 3"
+        all_odds = []
+        counter = 1
+        for group in odds_groups:
+            all_odds.append(['game_%d' % counter, group[0], group[1], group[2]])
+            counter += 1
     return all_odds
 
 def parse_file_input(filename='bets.txt', clean_text_file=False):
