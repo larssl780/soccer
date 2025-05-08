@@ -912,7 +912,7 @@ class poisson_calculator:
 
         return _grid[['opp_hc', 'opp_odds', 'opp_lp']]
 
-    def anal_top_n_bets(self, top_n=5, min_hc=-np.inf, max_hc=np.inf, max_loss_prob=None, tag=None, min_odds=1.14):
+    def anal_top_n_bets(self, top_n=5, min_hc=-np.inf, max_hc=np.inf, max_loss_prob=None, tag=None, min_odds=1.14, commission=0.02):
 
         raw_grid = self.grid_anal(min_hc=min_hc, max_hc=max_hc)
         raw_grid_opp = self.opponent_grid_anal(min_hc=min_hc, max_hc=max_hc)
@@ -922,12 +922,15 @@ class poisson_calculator:
             max_loss_prob = self.max_loss_prob
         for _t in raw_grid.itertuples():
             rounded_odds = np.ceil(_t.odds*100)/100
-            epnl = asian_expected_pnl(_t.hc, rounded_odds, self.mu1, self.mu2) * 1e4        
+            epnl = asian_expected_pnl(_t.hc, rounded_odds, self.mu1, self.mu2) * 1e4
+            # remove commish:
+            epnl *= (1-commission)
             out.append(['home', _t.hc, rounded_odds, epnl, _t.loss])
 
         for _t in raw_grid_opp.itertuples():
             rounded_odds = np.ceil(_t.opp_odds*100)/100
-            epnl = asian_expected_pnl(_t.opp_hc, rounded_odds, self.mu2, self.mu1) * 1e4        
+            epnl = asian_expected_pnl(_t.opp_hc, rounded_odds, self.mu2, self.mu1) * 1e4
+            epnl *= (1-commission)
             out.append(['away', _t.opp_hc, rounded_odds, epnl, _t.opp_lp])
 
         combo = pd.DataFrame(out, columns=['side', 'hc', 'odds', 'epnl', 'loss'])
