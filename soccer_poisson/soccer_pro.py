@@ -1529,3 +1529,9 @@ def process_odds_from_github():
 
     all_odds = parse_bets('bets.txt')
     return process_inputs(all_odds=all_odds)
+def xpts(xgf, xga):
+    """
+    prob of lose or draw = cdf(0) = P(mov <= 0)
+    prob of win = 1 - cdf(0)
+    """
+    return stats.skellam.pmf(0, xgf, xga) + (1-stats.skellam.cdf(0, xgf, xga))* 3
