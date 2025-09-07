@@ -574,6 +574,32 @@ def prob_mov_greater_equal(x, mu1, mu2):
     return 1 - skellam.cdf(x, mu1, mu2) + skellam.pmf(x, mu1, mu2)
 
 
+def asian_expected_pnl_simplified(hc, odds, mu1, mu2):
+    bets = []
+    stakes = [1]
+    if hc in asian_quarter_handicaps():
+
+
+      bets.append(hc - 0.25)
+      bets.append(hc + 0.25)
+      stakes = [0.5, 0.5]
+
+    else:
+
+      
+      bets.append(hc)
+
+    epnl = 0
+    for bet_i in range(len(bets)):
+      myStake = stakes[bet_i]
+      myHC = bets[bet_i]
+      pnlWin = odds * myStake - myStake
+      pnlLoss = -myStake
+      
+      epnl += (1-skellam.cdf(-myHC, mu1, mu2)) * pnlWin + skellam.cdf(-myHC - 0.5, mu1, mu2) * pnlLoss
+
+
+    return epnl
 def asian_expected_pnl(hc, odds, mu1, mu2):
     # asian_expected_pnl(home_team_handicap, odds, mu1, mu2)
 
@@ -917,19 +943,20 @@ class poisson_calculator:
         raw_grid = self.grid_anal(min_hc=min_hc, max_hc=max_hc)
         raw_grid_opp = self.opponent_grid_anal(min_hc=min_hc, max_hc=max_hc)
         
+        pnl_func = asian_expected_pnl_simplified if self.use_simplified_pnl else asian_expected_pnl
         out = []
         if max_loss_prob is None:
             max_loss_prob = self.max_loss_prob
         for _t in raw_grid.itertuples():
             rounded_odds = np.ceil(_t.odds*100)/100
-            epnl = asian_expected_pnl(_t.hc, rounded_odds, self.mu1, self.mu2) * 1e4
+            epnl = pnl_func(_t.hc, rounded_odds, self.mu1, self.mu2) * 1e4
             # remove commish:
             epnl *= (1-commission)
             out.append(['home', _t.hc, rounded_odds, epnl, _t.loss])
 
         for _t in raw_grid_opp.itertuples():
             rounded_odds = np.ceil(_t.opp_odds*100)/100
-            epnl = asian_expected_pnl(_t.opp_hc, rounded_odds, self.mu2, self.mu1) * 1e4
+            epnl = pnl_func(_t.opp_hc, rounded_odds, self.mu2, self.mu1) * 1e4
             epnl *= (1-commission)
             out.append(['away', _t.opp_hc, rounded_odds, epnl, _t.opp_lp])
 
@@ -992,7 +1019,7 @@ class poisson_calculator:
 
 
 class skellam_calculator(poisson_calculator):
-    def __init__(self, home_odds=None, away_odds=None, draw_odds=None, commission=0.02, workers=1, max_loss_prob=0.3, tolerance=1e-12):
+    def __init__(self, home_odds=None, away_odds=None, draw_odds=None, commission=0.02, workers=1, max_loss_prob=0.3, tolerance=1e-12, use_simplified_pnl=False):
         super().__init__(home_odds=home_odds, away_odds=away_odds, draw_odds=draw_odds,
                          commission=commission, workers=1, max_loss_prob=max_loss_prob)
 
@@ -1010,6 +1037,7 @@ class skellam_calculator(poisson_calculator):
             self._mu2 = None
             self._tolerance = tolerance
             self._skellam_is_fitted = False
+        self._use_simplified_pnl = use_simplified_pnl
 
     @property
     def skellam_is_fitted(self):
@@ -1019,6 +1047,13 @@ class skellam_calculator(poisson_calculator):
     def skellam_is_fitted(self, value):
         self._skellam_is_fitted = value
 
+    @property
+    def use_simplified_pnl(self):
+        return self._use_simplified_pnl
+
+    @use_simplified_pnl.setter
+    def use_simplified_pnl(self, value):
+        self._use_simplified_pnl = value
     @property
     def mu1(self):
         return self._mu1
@@ -1109,7 +1144,7 @@ class skellam_calculator(poisson_calculator):
         grid['opp_odds'] = oppo_fodds
         grid['opp_hc'] = oppo_hcs
 
-        max_loss_prob = self.max_loss_prob * 100
+        max_loss_prob = self.max_loss_prob * 100  # NOQA: F841
         back_home = grid.query(
             "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
         back_away = grid.query(
@@ -1170,7 +1205,8 @@ class skellam_calculator(poisson_calculator):
         grid['opp_odds'] = oppo_fodds
         grid['opp_hc'] = oppo_hcs
 
-        max_loss_prob = self.max_loss_prob * 100
+        
+        max_loss_prob = self.max_loss_prob * 100  # NOQA: F841
         back_home = grid.query(
             "loss.mul(100) <= @max_loss_prob and fair_odds >1.14", engine='python').copy()
         back_away = grid.query(
@@ -1386,7 +1422,7 @@ def parse_odds_inputs(odds_mongo):
         else:
             ho, do, ao = list(map(float, odds_mongo.split()))
         all_odds = [('single_game', ho, do, ao)]
-    except:
+    except Exception:
         # the above will presumably break if we have more than 3 odds?
         if ',' in odds_mongo:
             raw_odds = list(map(float, odds_mongo.split(',')))
@@ -1409,8 +1445,8 @@ def parse_file_input(filename='bets.txt', clean_text_file=False):
     all_odds = parse_bets(filename)
     return all_odds
 
-def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal'):
-    pcalc = skellam_calculator(commission=commission)
+def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', use_simplified_pnl=False):
+    pcalc = skellam_calculator(commission=commission, use_simplified_pnl=use_simplified_pnl)
     html_text = '<html>'
 
 
