@@ -1435,8 +1435,10 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal'):
     
       
         
-        df = pcalc.grid_anal(min_hc = -4, max_hc =4)
-        dummy, styler = pcalc.report_anal(tag)
+        # these two lines aren't used?
+        # remove 20250907
+        # df = pcalc.grid_anal(min_hc = -4, max_hc =4)
+        # dummy, styler = pcalc.report_anal(tag)
         df = pcalc.anal_top_n_bets(min_hc=-4, max_hc=4, tag=tag)
   
         print('mu1=%.3f, mu2=%.3f' % (pcalc.mu1, pcalc.mu2))
