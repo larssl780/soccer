@@ -1415,7 +1415,7 @@ def parse_bets(filename):
     return all_odds
 def parse_text_dump(text):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        Path(os.path.join(tmpdirname, 'bets.txt')).write(text)
+        Path(os.path.join(tmpdirname, 'bets.txt')).write_text(text)
         return parse_bets(os.path.join(tmpdirname, 'bets.txt'))
 
 def parse_odds_inputs(odds_mongo):
