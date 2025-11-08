@@ -17,6 +17,7 @@ import re
 import tabulate
 from tqdm import tqdm
 import json
+import tempfile
 # from pathlib import Path
 # import pdb
 
@@ -1412,7 +1413,10 @@ def parse_bets(filename):
             continue
 
     return all_odds
-
+def parse_text_dump(text):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        Path(os.path.join(tmpdirname, 'bets.txt')).write(text)
+        return parse_bets(os.path.join(tmpdirname, 'bets.txt'))
 
 def parse_odds_inputs(odds_mongo):
 
