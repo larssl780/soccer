@@ -93,7 +93,7 @@ def mov_probs_skellam(home_odds, draw_odds, away_odds, tolerance=1e-12):
     draw = 1 / draw_odds
     lose = 1 / away_odds
     # remove the overround:
-    k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
+    k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, .99, 2)
     # p_win = win**k
     p_draw = draw**k
     p_lose = lose**k
