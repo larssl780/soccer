@@ -1111,7 +1111,7 @@ class skellam_calculator(poisson_calculator):
         draw = 1 / self.draw_odds
         lose = 1 / self.away_odds
         # remove the overround:
-        k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, 1, 2)
+        k = optimize.brentq(lambda x: win**x + draw**x + lose**x - 1, .99, 2)
 
         p_win = win ** k
         p_draw = draw ** k
