@@ -1627,3 +1627,6 @@ def weighted_odds(text):
 	away_odds_mean /= away_amount
 
 	return home_odds_mean, draw_odds_mean, away_odds_mean
+def betfair_match_odds_parser(text):
+	ho, do, ao = weighted_odds(text)
+	return [('dummy', ho, do, ao)]
