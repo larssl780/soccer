@@ -1581,7 +1581,7 @@ def xpts(xgf, xga):
 def weighted_odds(text):
     
 
-	amounts = re.findall(r'£\d+', text)
+	amounts = [x for x in re.findall(r'£([\d,]+)', text)]
 
 
 	for amt in amounts:
@@ -1589,8 +1589,7 @@ def weighted_odds(text):
 
 	numbers = [float(x) for x in re.findall(r'\d+(?:\.\d+)?', text)]
 
-	amounts = [int(x.replace('£', '')) for x in amounts]
-
+	amounts = [int(x.replace('£', '').replace(',', '')) for x in amounts]
 	home_odds = numbers[:2]
 	away_odds = numbers[2:4]
 	draw_odds = numbers[4:6]
