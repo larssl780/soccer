@@ -941,6 +941,7 @@ class poisson_calculator:
 
     def anal_top_n_bets(self, top_n=5, min_hc=-np.inf, max_hc=np.inf, max_loss_prob=None, tag=None, min_odds=1.14, commission=0.02):
 
+        # pdb.set_trace()
         raw_grid = self.grid_anal(min_hc=min_hc, max_hc=max_hc)
         raw_grid_opp = self.opponent_grid_anal(min_hc=min_hc, max_hc=max_hc)
         
@@ -1449,7 +1450,7 @@ def parse_file_input(filename='bets.txt', clean_text_file=False):
     all_odds = parse_bets(filename)
     return all_odds
 
-def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', use_simplified_pnl=False):
+def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', use_simplified_pnl=False, top_n=5, min_odds=1.1):
     pcalc = skellam_calculator(commission=commission, use_simplified_pnl=use_simplified_pnl)
     html_text = '<html>'
 
@@ -1479,7 +1480,7 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', us
         # remove 20250907
         # df = pcalc.grid_anal(min_hc = -4, max_hc =4)
         # dummy, styler = pcalc.report_anal(tag)
-        df = pcalc.anal_top_n_bets(min_hc=-4, max_hc=4, tag=tag)
+        df = pcalc.anal_top_n_bets(min_hc=-4, max_hc=4, tag=tag, top_n=top_n, min_odds=min_odds)
   
         print('mu1=%.3f, mu2=%.3f' % (pcalc.mu1, pcalc.mu2))
 
@@ -1488,7 +1489,7 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', us
 
         
     
-        df = df.iloc[:5].copy()
+        df = df.iloc[:top_n].copy()
         df['home'] = [tag] * len(df)
         dfs.append(df)
     html_text += '</html>'
