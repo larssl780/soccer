@@ -1633,3 +1633,21 @@ def weighted_odds(text):
 def betfair_match_odds_parser(text):
     ho, do, ao = weighted_odds(text)
     return [('dummy', ho, do, ao)]
+
+
+def print_cdf(all_odds=None, commission=0.02, use_simplified_pnl=False):
+    pcalc = skellam_calculator(commission=commission, use_simplified_pnl=use_simplified_pnl)
+    
+
+    
+    for tag, ho, do, ao in tqdm(all_odds):
+        pcalc.home_odds = ho
+        pcalc.draw_odds = do
+        pcalc.away_odds = ao
+  
+        pcalc.probs
+
+        print("Prob in bps (mu1=%.5f, mu2=%.5f)" % (pcalc.mu1, pcalc.mu2))
+        print(tabulate(zip(np.arange(-10, 10), np.round(skellam.cdf(np.arange(-10, 10), pcalc.mu1, pcalc.mu2)*1e4)), headers=['mov', 'P(X<=mov)']))
+
+
