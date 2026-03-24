@@ -1648,6 +1648,6 @@ def print_cdf(all_odds=None, commission=0.02, use_simplified_pnl=False):
         pcalc.probs
 
         print("Prob in bps (mu1=%.5f, mu2=%.5f)" % (pcalc.mu1, pcalc.mu2))
-        print(tabulate(zip(np.arange(-10, 10), np.round(skellam.cdf(np.arange(-10, 10), pcalc.mu1, pcalc.mu2)*1e4)), headers=['mov', 'P(X<=mov)']))
+        print(tabulate.tabulate(zip(np.arange(-10, 10), np.round(skellam.cdf(np.arange(-10, 10), pcalc.mu1, pcalc.mu2)*1e4)), headers=['mov', 'P(X<=mov)']))
 
 
