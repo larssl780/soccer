@@ -1630,10 +1630,66 @@ def weighted_odds(text):
     away_odds_mean /= away_amount
 
     return home_odds_mean, draw_odds_mean, away_odds_mean
+
+def weighted_odds_two_way(text):
+    
+
+    amounts, numbers = [], []
+    pattern = re.compile(r'£\s*[\d,]+(?:\.\d+)?|\d+(?:\.\d+)?')
+
+    for match in pattern.finditer(text):
+        token = match.group()
+        if token.startswith('£'):
+            value = float(token.replace('£', '').replace(',', ''))
+            amounts.append(value)
+
+        else:
+            value = float(token)
+            numbers.append(value)
+    home_odds = numbers[:2]
+    away_odds = numbers[2:4]
+    # draw_odds = numbers[4:6]
+
+    home_amounts = amounts[:2]
+    away_amounts = amounts[2:4]
+    # draw_amounts = amounts[4:]
+
+
+    home_odds_mean = 0
+    home_amount = 0
+    for i in range(len(home_odds)):
+        home_odds_mean += home_odds[i] * home_amounts[i]
+        home_amount += home_amounts[i]
+
+    home_odds_mean /= home_amount
+
+
+    # draw_odds_mean = 0
+    # draw_amount = 0
+    # for i in range(len(draw_odds)):
+    #     draw_odds_mean += draw_odds[i] * draw_amounts[i]
+    #     draw_amount += draw_amounts[i]
+
+    # draw_odds_mean /= draw_amount
+
+
+    away_odds_mean = 0
+    away_amount = 0
+    for i in range(len(away_odds)):
+        away_odds_mean += away_odds[i] * away_amounts[i]
+        away_amount += away_amounts[i]
+
+    away_odds_mean /= away_amount
+
+    return home_odds_mean, away_odds_mean
+
+
 def betfair_match_odds_parser(text):
     ho, do, ao = weighted_odds(text)
     return [('dummy', ho, do, ao)]
-
+def betfair_two_way_odds_parser(text):
+    _for, _against = weighted_odds_two_way(text)
+    return [('dummy', _for, _against)]
 
 def print_cdf(all_odds=None, commission=0.02, use_simplified_pnl=False):
     pcalc = skellam_calculator(commission=commission, use_simplified_pnl=use_simplified_pnl)
