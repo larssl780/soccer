@@ -1744,7 +1744,7 @@ def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', us
         
     
     
-    toto = pd.DataFrame(dfs, columns=['team', '1', 'X', '2', 'ht_hc', '10', '50', '90', '-5', '-4', '-3', '-2', '-1', '1', '2', '3', '4', '5'])
+    toto = pd.DataFrame(dfs, columns=['team', '1', 'X', '2', 'ht_hc', '10', '50', '90', '-5', '-4', '-3', '-2', '-1', '0', '1', '2', '3', '4', '5'])
     
     ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
     with open('handicaps_%s.html' % ts, 'w') as fp:
