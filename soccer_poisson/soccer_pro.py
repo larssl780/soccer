@@ -1738,8 +1738,8 @@ def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', us
         for mov in np.arange(-5, 6):
             mov_probs.append(dist.cdf(mov))
             
-        row = [tag,ho, do, ao, pcalc.mu2 - pcalc.mu1, p10, median, p90]
-        dfs.append(np.append(row, mov_probs))         
+        row = [tag,ho, do, ao, pcalc.mu2 - pcalc.mu1, p10, median, p90] + mov_probs
+        dfs.append(row)         
         
         
     
@@ -1748,4 +1748,4 @@ def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', us
     
     ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
     with open('handicaps_%s.html' % ts, 'w') as fp:
-        fp.write('<html>%s</html>' % toto.round(3).to_html(index=False))
+        fp.write('<html>%s</html>' % toto.round(4).to_html(index=False))
