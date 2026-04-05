@@ -1706,4 +1706,36 @@ def print_cdf(all_odds=None, commission=0.02, use_simplified_pnl=False):
         print("Prob in bps (mu1=%.5f, mu2=%.5f)" % (pcalc.mu1, pcalc.mu2))
         print(tabulate.tabulate(zip(np.arange(-10, 10), np.round(skellam.cdf(np.arange(-10, 10), pcalc.mu1, pcalc.mu2)*1e4)), headers=['mov', 'P(X<=mov)']))
 
+def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', use_simplified_pnl=False, top_n=5, min_odds=1.1):
+    pcalc = skellam_calculator(commission=commission, use_simplified_pnl=use_simplified_pnl)
+    html_text = '<html>'
 
+
+
+
+
+
+
+    dfs = []
+    for tag, ho, do, ao in tqdm(all_odds):
+        pcalc.home_odds = ho
+        pcalc.draw_odds = do
+        pcalc.away_odds = ao
+  
+        pcalc.probs
+        try:
+            pcalc.validate_calibration()
+        except Exception as e:
+            print("Failed to calibrate %s: %s" % (tag, str(e)))
+            continue
+
+        dfs.append([tag, pcalc.mu2 - pcalc.mu1])         
+        
+        
+    
+    
+    toto = pd.DataFrame(dfs, columns=['team', 'hc'])
+    
+    ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
+    with open('handicaps_%s.html' % ts, 'w') as fp:
+        fp.write('<html>%s</html>' % toto.round(3).to_html(index=False))
