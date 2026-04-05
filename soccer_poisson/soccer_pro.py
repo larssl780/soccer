@@ -1729,12 +1729,18 @@ def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', us
             print("Failed to calibrate %s: %s" % (tag, str(e)))
             continue
 
-        dfs.append([tag, pcalc.mu2 - pcalc.mu1])         
+        dist = skellam(pcalc.mu1, pcalc.mu2)
+
+        p10 = dist.ppf(0.10)
+        median = dist.ppf(0.50)
+        p90 = dist.ppf(0.90)
+
+        dfs.append([tag,ho, do, ao, pcalc.mu2 - pcalc.mu1, p10, median, p90])         
         
         
     
     
-    toto = pd.DataFrame(dfs, columns=['team', 'hc'])
+    toto = pd.DataFrame(dfs, columns=['team', '1', 'X', '2', 'ht_hc', '10', '50', '90'])
     
     ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
     with open('handicaps_%s.html' % ts, 'w') as fp:
