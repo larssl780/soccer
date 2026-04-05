@@ -1734,13 +1734,17 @@ def list_handicaps(commission=0.02, all_odds=None, model_name='skellam_anal', us
         p10 = dist.ppf(0.10)
         median = dist.ppf(0.50)
         p90 = dist.ppf(0.90)
-
-        dfs.append([tag,ho, do, ao, pcalc.mu2 - pcalc.mu1, p10, median, p90])         
+        mov_probs = []
+        for mov in np.arange(-5, 6):
+            mov_probs.append(dist.cdf(mov))
+            
+        row = [tag,ho, do, ao, pcalc.mu2 - pcalc.mu1, p10, median, p90]
+        dfs.append(np.append(row, mov_probs))         
         
         
     
     
-    toto = pd.DataFrame(dfs, columns=['team', '1', 'X', '2', 'ht_hc', '10', '50', '90'])
+    toto = pd.DataFrame(dfs, columns=['team', '1', 'X', '2', 'ht_hc', '10', '50', '90', '-5', '-4', '-3', '-2', '-1', '1', '2', '3', '4', '5'])
     
     ts = pd.to_datetime('today').strftime('%Y%m%d%H%M')
     with open('handicaps_%s.html' % ts, 'w') as fp:
