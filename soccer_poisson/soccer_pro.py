@@ -1512,8 +1512,8 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', us
 def get_matches_from_api(data=None, api_key=''):
 
     if data is None:
-        
-        url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=%s' % api_key
+        ts = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=%s&commenceTimeFrom=%s' % (api_key, ts)
         res = requests.get(url)
         data = res.json()
         with open('api_data_%d.json' % (int(time.time())), 'w') as fp:
