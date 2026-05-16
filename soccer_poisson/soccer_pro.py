@@ -1513,6 +1513,7 @@ def get_matches_from_api(data=None, api_key=''):
 
     if data is None:
         ts = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        # this doesn't make any difference - the api will return live games + 8 upcoming games regardless.
         url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=%s&commenceTimeFrom=%s' % (api_key, ts)
         res = requests.get(url)
 
