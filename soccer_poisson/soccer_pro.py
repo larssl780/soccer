@@ -1509,12 +1509,29 @@ def process_inputs(commission=0.02, all_odds=None, model_name='skellam_anal', us
         fp.write('<html>%s</html>' % toto.round(3).to_html(index=False))
 
 
-def get_matches_from_api(data=None, api_key=''):
-
+def get_matches_from_api(data=None, api_key='', sport='soccer'):
+    """
+    default to soccer, but can pass in league instead:
+    - English Premier League: soccer_epl
+    - French Ligue 1: soccer_french_ligue_one
+    - Spanish La Liga: soccer_spain_la_liga
+    - German Bundesliga: soccer_german_bundesliga
+    - Italian Serie A: soccer_italy_serie_a
+    - MLS (USA): soccer_usa_mls
+    - soccer_sweden_allsvenskan
+    - soccer_sweden_superettan
+    - soccer_portugal_primeira_liga
+    - soccer_brazil_campeonato
+    - soccer_brazil_campeonato_b
+    - soccer_norway_eliteserien
+    - soccer_japan_j_league
+    - soccer_south_korea_k_league_1
+    - soccer_denmark_superliga
+    """
     if data is None:
         ts = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         # this doesn't make any difference - the api will return live games + 8 upcoming games regardless.
-        url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?regions=eu&markets=h2h&apiKey=%s&commenceTimeFrom=%s' % (api_key, ts)
+        url = 'https://api.the-odds-api.com/v4/sports/%s/odds/?regions=eu&markets=h2h&apiKey=%s&commenceTimeFrom=%s' % (sport, api_key, ts)
         res = requests.get(url)
 
         if 'x-requests-remaining' in res.headers:
@@ -1553,8 +1570,8 @@ def get_matches_from_api(data=None, api_key=''):
 
 
     return pd.DataFrame(out, columns=['event', 'time', 'home_team', 'home_odds', 'draw_odds', 'away_odds' ])
-def process_odds_from_api(api_key=''):
-    df = get_matches_from_api(api_key=api_key)
+def process_odds_from_api(api_key='', sport='soccer'):
+    df = get_matches_from_api(api_key=api_key, sport=sport)
     text = ''
     for _t in df.itertuples():
         text += '%s (%s %s)\n' % (_t.home_team, _t.event, _t.time)
