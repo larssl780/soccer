@@ -1528,6 +1528,8 @@ def get_matches_from_api(data=None, api_key='', sport='soccer'):
     - soccer_south_korea_k_league_1
     - soccer_denmark_superliga
     """
+
+    # filter_events = True if sport == 'soccer' else False
     if data is None:
         ts = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         # this doesn't make any difference - the api will return live games + 8 upcoming games regardless.
@@ -1541,16 +1543,21 @@ def get_matches_from_api(data=None, api_key='', sport='soccer'):
             json.dump(data, fp)
 
     out = []
-    now = pd.to_datetime("now")
-    now_secs = now.hour * 3600+ now.minute*60
+    # now = pd.to_datetime("now")
+    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    # now_secs = now.hour * 3600+ now.minute*60
 
     for el in data:
         ht = el['home_team']
-        ts = pd.to_datetime(el["commence_time"])
-        this_seconds = ts.hour*3600+ts.minute*60
-
-        if this_seconds< now_secs:
+        ts = pd.to_datetime(el["commence_time"]).strftime('%Y-%m-%dT%H:%M:%SZ')
+        if ts < now:
+            print("Event already started: %s: %s"  % (el['home_team'], el['commence_time']))
             continue
+        # if filter_events:
+        #     this_seconds = ts.hour*3600+ts.minute*60
+    
+        #     if this_seconds< now_secs:
+        #         continue
         row = [el['sport_title'], el['commence_time'], el['home_team'] ]
     
         ht_odds_arr = []
