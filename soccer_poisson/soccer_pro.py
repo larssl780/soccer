@@ -1606,6 +1606,12 @@ def xpts(xgf, xga):
     prob of win = 1 - cdf(0)
     """
     return skellam.pmf(0, xgf, xga) + (1-skellam.cdf(0, xgf, xga))* 3
+def xoutcomes(xgf, xga):
+    """
+    prob of lose or draw = cdf(0) = P(mov <= 0)
+    prob of win = 1 - cdf(0)
+    """
+    return (1-skellam.cdf(0, xgf, xga)),skellam.pmf(0,xgf,xga),skellam.cdf(-1,xgf,xga)
 
 def weighted_odds(text):
     
